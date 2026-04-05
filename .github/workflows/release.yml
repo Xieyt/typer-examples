@@ -38,16 +38,18 @@ jobs:
           cat CHANGELOG_RELEASE.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      # Regenerate the full CHANGELOG.md and push it back to the repo
+      # Regenerate the full CHANGELOG.md and push it back to the repo.
+      # Switch to main explicitly — checkout leaves us in detached HEAD on the tag.
       - name: Update CHANGELOG.md
         run: |
-          uv run git-cliff --output CHANGELOG.md
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          uv run git-cliff --output CHANGELOG.md
           git add CHANGELOG.md
           git diff --cached --quiet || git commit -m "chore(changelog): update for ${{ github.ref_name }} [skip ci]" --no-verify
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git push origin main
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
