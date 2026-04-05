@@ -5,6 +5,18 @@ from typing import Any, Dict
 
 import click
 
+# Click uses a Sentinel singleton (not None) for required args that have no default.
+# We must exclude it from the template-var resolution, otherwise str(Sentinel.UNSET)
+# leaks as a literal "Sentinel.UNSET" placeholder value.
+try:
+    from click.core import Sentinel as _ClickSentinel
+
+    _CLICK_UNSET = _ClickSentinel.UNSET
+except (ImportError, AttributeError):
+    # Older Click versions don't have this sentinel; use a private object that
+    # will never match any real default value.
+    _CLICK_UNSET = object()
+
 
 class _SafeFormatMap(dict):
     """dict subclass that returns '{key}' for missing keys instead of raising KeyError."""
@@ -31,10 +43,7 @@ def resolve_vars(
     positional_params = [p for p in obj.params if isinstance(p, click.Argument)]
 
     for param in positional_params:
-        if (
-            param.default is not None
-            and param.default is not click.Parameter.type_cast_value
-        ):
+        if param.default is not None and param.default is not _CLICK_UNSET:
             result[param.name] = str(param.default)  # type: ignore[arg-type]
 
     argv_values = _extract_argv_positionals(obj, ctx)

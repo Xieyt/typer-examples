@@ -10,8 +10,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
 
-from ._hook import get_config
-from ._models import Example
+from ._models import Example, ExamplesConfig
 from ._providers import resolve_vars, safe_format_map
 
 
@@ -19,18 +18,28 @@ def print_examples_panel(
     examples: List[Example],
     obj: "click.Command",
     ctx: "click.Context",
+    config: ExamplesConfig,
 ) -> None:
     import typer.rich_utils as ut
 
     console = ut._get_rich_console()  # type: ignore[attr-defined]
-    config = get_config()
     template_vars = resolve_vars(obj, ctx, config.vars)
 
-    border_style = config.panel_border_style or getattr(
-        ut, "STYLE_OPTIONS_PANEL_BORDER", "dim"
+    border_style = (
+        config.panel_border_style
+        if config.panel_border_style is not None
+        else getattr(ut, "STYLE_OPTIONS_PANEL_BORDER", "dim")
     )
-    padding = config.panel_padding or getattr(ut, "STYLE_OPTIONS_TABLE_PADDING", (0, 1))
-    title_align = config.title_align or getattr(ut, "ALIGN_OPTIONS_PANEL", "left")
+    padding = (
+        config.panel_padding
+        if config.panel_padding is not None
+        else getattr(ut, "STYLE_OPTIONS_TABLE_PADDING", (0, 1))
+    )
+    title_align = (
+        config.title_align
+        if config.title_align is not None
+        else getattr(ut, "ALIGN_OPTIONS_PANEL", "left")
+    )
 
     rows = []
 
@@ -79,11 +88,8 @@ def _build_code(
     obj: "click.Command",
     ctx: "click.Context",
     vars: dict,
-    config: object,
+    config: ExamplesConfig,
 ) -> str:
-    from ._models import ExamplesConfig
-
-    assert isinstance(config, ExamplesConfig)
     resolved = safe_format_map(code, vars)
     if config.show_command_prefix:
         prefix = ctx.command_path

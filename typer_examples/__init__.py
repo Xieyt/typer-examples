@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional
+from typing import Callable, Optional
 
-import typer
+import typer as _typer
 
-from ._hook import install_hook, set_config
+from ._hook import install_hook, register_app, set_config
 from ._models import Example, ExamplesConfig
 from .docs import get_all_examples
 
@@ -36,7 +36,9 @@ def example(
     return decorator
 
 
-def install(app: Optional[typer.Typer] = None) -> None:
+def install(app: _typer.Typer, config: Optional[ExamplesConfig] = None) -> None:
+    cfg = config or ExamplesConfig()
+    register_app(app, cfg)
     install_hook()
 
 

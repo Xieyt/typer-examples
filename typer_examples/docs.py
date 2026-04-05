@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import typer
+
+from ._providers import safe_format_map
 
 
 def get_all_examples(app: typer.Typer) -> Dict[Tuple[str, ...], list]:
@@ -38,7 +40,7 @@ def _collect(
         _collect(sub_app, path + (group_name,) if group_name else path, result)
 
 
-def to_markdown(app: typer.Typer) -> str:
+def to_markdown(app: typer.Typer, vars: Optional[Dict[str, str]] = None) -> str:
     all_examples = get_all_examples(app)
     lines: List[str] = []
 
@@ -49,12 +51,17 @@ def to_markdown(app: typer.Typer) -> str:
             lines.append(f"**{ex.desc}**\n")
             if ex.detail:
                 lines.append(f"{ex.detail}\n")
-            lines.append(f"```bash\n$ {ex.code}\n```\n")
+            code = (
+                safe_format_map(ex.code, {**vars, **ex.vars})
+                if vars is not None
+                else ex.code
+            )
+            lines.append(f"```bash\n$ {code}\n```\n")
 
     return "\n".join(lines)
 
 
-def to_rst(app: typer.Typer) -> str:
+def to_rst(app: typer.Typer, vars: Optional[Dict[str, str]] = None) -> str:
     all_examples = get_all_examples(app)
     lines: List[str] = []
 
@@ -73,7 +80,12 @@ def to_rst(app: typer.Typer) -> str:
                 lines.append("")
             lines.append(".. code-block:: bash")
             lines.append("")
-            lines.append(f"   $ {ex.code}")
+            code = (
+                safe_format_map(ex.code, {**vars, **ex.vars})
+                if vars is not None
+                else ex.code
+            )
+            lines.append(f"   $ {code}")
             lines.append("")
 
     return "\n".join(lines)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 
 @dataclass
@@ -31,25 +31,17 @@ VarValue = Union[str, Callable[..., str]]
 class ExamplesConfig:
     """Global rendering configuration for typer-examples.
 
-    All style fields default to empty string, which means the renderer auto-matches
-    the values Typer itself uses (read from ``typer.rich_utils`` at render time).
+    Style fields that are ``None`` are auto-matched to the values Typer itself uses
+    (read from ``typer.rich_utils`` at render time).
     """
 
     panel_title: str = "Examples"
-    panel_border_style: str = (
-        ""  # empty → auto-match typer's STYLE_OPTIONS_PANEL_BORDER
-    )
-    panel_padding: Tuple[
-        Any, ...
-    ] = ()  # empty → auto-match typer's STYLE_OPTIONS_TABLE_PADDING
-    title_align: str = ""  # empty → auto-match typer's ALIGN_OPTIONS_PANEL
-    heading_style: str = "bold"  # Rich style for the desc line
-    detail_style: str = "dim"  # Rich style for the optional detail line
-    syntax_theme: str = "ansi_dark"  # Pygments theme passed to rich.syntax.Syntax
-    syntax_highlight: bool = (
-        True  # shell-highlight the code line via rich.syntax.Syntax
-    )
-    show_command_prefix: bool = True  # prepend ctx.command_path before example code
-    vars: Dict[str, VarValue] = field(
-        default_factory=dict
-    )  # app-level template defaults
+    panel_border_style: Optional[str] = None
+    panel_padding: Optional[Tuple[Any, ...]] = None
+    title_align: Optional[str] = None
+    heading_style: str = "bold"
+    detail_style: str = "dim"
+    syntax_theme: str = "ansi_dark"
+    syntax_highlight: bool = True
+    show_command_prefix: bool = True
+    vars: Dict[str, VarValue] = field(default_factory=dict)
