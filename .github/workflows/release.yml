@@ -30,6 +30,10 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --extra dev
 
+      - name: Get release date
+        id: date
+        run: echo "value=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
       # Generate changelog body for this tag only (since previous tag)
       - name: Generate changelog
         id: changelog
@@ -63,7 +67,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} - ${{ steps.date.outputs.value }}
           body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
