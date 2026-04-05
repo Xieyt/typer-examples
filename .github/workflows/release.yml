@@ -62,4 +62,6 @@ jobs:
           body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
