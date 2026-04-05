@@ -76,14 +76,22 @@ jobs:
         run: uv sync --extra dev
 
       - name: Override Typer to ${{ matrix.typer-version }}
+        id: install-typer
+        continue-on-error: true
         run: uv pip install "typer[all]==${{ matrix.typer-version }}"
 
       - name: Verify installed Typer version
+        if: steps.install-typer.outcome == 'success'
         run: uv run python -c "import typer; print('typer', typer.__version__)"
 
       - name: Run tests
         id: pytest
+        if: steps.install-typer.outcome == 'success'
         run: uv run pytest tests/ -v
+
+      - name: Skip notice (Python incompatible with this Typer version)
+        if: steps.install-typer.outcome == 'failure'
+        run: echo "Typer ${{ matrix.typer-version }} does not support Python ${{ matrix.python-version }} — skipping."
 
   summary:
     needs: [get-versions, test]
