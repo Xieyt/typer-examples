@@ -51,6 +51,9 @@ jobs:
           git diff --cached --quiet || git commit -m "chore(changelog): update for ${{ github.ref_name }} [skip ci]" --no-verify
           git push origin main
 
+      - name: Build distributions
+        run: uv build
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -59,3 +62,4 @@ jobs:
           body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/*
