@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,9 +23,40 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache-dependency-path: uv.lock
 
       - name: Install dependencies
         run: uv sync --extra dev
 
       - name: Run tests
         run: uv run pytest tests/ -v
+
+  summary:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write job summary
+        env:
+          RESULT: ${{ needs.test.result }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "## CI — $(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trigger** | \`$EVENT\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Ref** | \`$REF\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${SHA:0:7}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Python versions** | \`3.9\`, \`3.10\`, \`3.11\`, \`3.12\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "$RESULT" = "success" ]; then
+            echo "### ✅ All checks passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ One or more checks failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See [matrix results]($RUN_URL) for per-version details." >> $GITHUB_STEP_SUMMARY
+          fi
