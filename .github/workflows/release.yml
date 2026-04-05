@@ -32,6 +32,8 @@ jobs:
       # Generate changelog body for this tag only (since previous tag)
       - name: Generate changelog
         id: changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run git-cliff --current --strip header --output CHANGELOG_RELEASE.md
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
@@ -41,6 +43,8 @@ jobs:
       # Regenerate the full CHANGELOG.md and push it back to the repo.
       # Switch to main explicitly — checkout leaves us in detached HEAD on the tag.
       - name: Update CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

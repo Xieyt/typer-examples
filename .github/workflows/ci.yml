@@ -52,6 +52,8 @@ jobs:
         run: uv sync --extra dev
 
       - name: Regenerate CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: uv run git-cliff --output CHANGELOG.md
 
       - name: Commit if changed
