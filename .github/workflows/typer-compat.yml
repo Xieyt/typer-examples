@@ -69,7 +69,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.11"
-          cache-dependency-path: uv.lock
+          cache-dependency-glob: uv.lock
 
       - name: Install project
         run: uv sync --extra dev
