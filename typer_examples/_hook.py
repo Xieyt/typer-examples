@@ -36,18 +36,14 @@ def _get_config_for_callback(callback: Any) -> ExamplesConfig:
         original = original.__wrapped__
 
     for app, cfg in list(_app_config_map.items()):
-        if _app_has_callback(app, original):
+        if _app_directly_has_callback(app, original):
             return cfg
     return _config
 
 
-def _app_has_callback(app: Any, callback: Any) -> bool:
+def _app_directly_has_callback(app: Any, callback: Any) -> bool:
     for cmd_info in app.registered_commands:
         if cmd_info.callback is callback:
-            return True
-    for group_info in app.registered_groups:
-        sub = group_info.typer_instance
-        if sub is not None and _app_has_callback(sub, callback):
             return True
     return False
 
