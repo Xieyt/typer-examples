@@ -1,0 +1,134 @@
+name: Typer Compatibility
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # 06:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  get-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.fetch.outputs.versions }}
+
+    steps:
+      - name: Fetch Typer versions from PyPI
+        id: fetch
+        run: |
+          versions=$(python3 -c "
+          import json
+          from urllib.request import urlopen
+
+          with urlopen('https://pypi.org/pypi/typer/json') as r:
+              data = json.load(r)
+
+          best = {}
+          for v in data['releases']:
+              parts = v.split('.')
+              if len(parts) < 2:
+                  continue
+              try:
+                  major, minor = int(parts[0]), int(parts[1])
+              except ValueError:
+                  continue
+              # skip pre-releases; require >= 0.9
+              if (major, minor) < (0, 9):
+                  continue
+              if any(c in v for c in ('a', 'b', 'rc', 'dev')):
+                  continue
+              key = (major, minor)
+              cur = best.get(key)
+              vt = tuple(int(x) for x in v.split('.'))
+              if cur is None or vt > tuple(int(x) for x in cur.split('.')):
+                  best[key] = v
+
+          result = sorted(best.values(), key=lambda v: tuple(int(x) for x in v.split('.')))
+          print(json.dumps(result))
+          ")
+          echo "versions=$versions" >> $GITHUB_OUTPUT
+
+  test:
+    needs: get-versions
+    runs-on: ubuntu-latest
+    continue-on-error: true  # let the full matrix run; failures collected in summary
+
+    strategy:
+      fail-fast: false
+      matrix:
+        typer-version: ${{ fromJson(needs.get-versions.outputs.versions) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        run: uv sync --extra dev
+
+      - name: Override Typer to ${{ matrix.typer-version }}
+        run: uv pip install "typer[all]==${{ matrix.typer-version }}"
+
+      - name: Verify installed Typer version
+        run: uv run python -c "import typer; print('typer', typer.__version__)"
+
+      - name: Run tests
+        id: pytest
+        run: uv run pytest tests/ -v
+
+  summary:
+    needs: [get-versions, test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write job summary
+        env:
+          RESULT: ${{ needs.test.result }}
+          VERSIONS: ${{ needs.get-versions.outputs.versions }}
+        run: |
+          echo "## Typer Compatibility — $(date -u +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tested versions (latest patch per minor):** \`$VERSIONS\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "$RESULT" = "success" ]; then
+            echo "✅ All versions passed." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ One or more versions failed — see matrix results above for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Open issue on failure (once per day)
+        if: needs.test.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSIONS: ${{ needs.get-versions.outputs.versions }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Typer compatibility failure — $(date -u +'%Y-%m-%d')"
+
+          # Skip if an open issue with the same title already exists today
+          existing=$(gh issue list --state open --search "$TITLE" --json number --jq length)
+          if [ "$existing" -gt 0 ]; then
+            echo "Issue already open for today — skipping."
+            exit 0
+          fi
+
+          gh issue create \
+            --title "$TITLE" \
+            --label "bug,compatibility" \
+            --body "$(cat <<EOF
+          One or more Typer versions failed the daily compatibility test.
+
+          **Tested versions:** \`$VERSIONS\`
+          **Run:** $RUN_URL
+
+          Check the matrix results in the run above to see which versions failed and what broke.
+          EOF
+          )"
