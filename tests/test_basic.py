@@ -59,9 +59,7 @@ class TestInstallHook:
         original = ut.rich_format_help
         app = _fresh_app()
         install(app)
-        assert ut.rich_format_help is not original or getattr(
-            ut, "_typer_examples_installed", False
-        )
+        assert ut.rich_format_help is not original or getattr(ut, "_typer_examples_installed", False)
 
     def test_install_is_idempotent(self):
         app = _fresh_app()
@@ -124,9 +122,7 @@ class TestResolveVars:
 
     def test_config_vars_callable_exception_is_ignored(self):
         cmd, ctx = self._make_command_and_ctx(with_arg=False)
-        result = resolve_vars(
-            cmd, ctx, {"bad": lambda ctx: (_ for _ in ()).throw(RuntimeError("oops"))}
-        )
+        result = resolve_vars(cmd, ctx, {"bad": lambda ctx: (_ for _ in ()).throw(RuntimeError("oops"))})
         assert "bad" not in result
 
 
@@ -289,3 +285,82 @@ class TestDocsVarsParam:
         md = to_markdown(app, vars={"env": "global"})
         assert "hardcoded" in md
         assert "global" not in md
+
+
+class TestArgvWinsOverPerExampleKwargs:
+    def test_argv_value_beats_per_example_kwarg(self):
+        import sys
+
+        app = _fresh_app()
+        install(app)
+
+        @app.command()
+        @example("Create bench", "{name}", name="fallback")
+        def create(name: str):
+            pass
+
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = ["create", "myvalue", "--help"]
+            result = runner.invoke(app, ["create", "myvalue", "--help"])
+        finally:
+            sys.argv = original_argv
+
+        assert "myvalue" in result.output
+        assert "fallback" not in result.output
+
+    def test_per_example_kwarg_used_as_fallback_when_no_argv(self):
+        import sys
+
+        app = _fresh_app()
+        install(app)
+
+        @app.command()
+        @example("Create bench", "{name}", name="fallback")
+        def create(name: str):
+            pass
+
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = ["create", "--help"]
+            result = runner.invoke(app, ["create", "--help"])
+        finally:
+            sys.argv = original_argv
+
+        assert "fallback" in result.output
+
+    def test_subcommand_token_not_mistaken_for_positional(self):
+        import sys
+        import click
+        from typer_examples._providers import _extract_argv_positionals
+
+        cmd = click.Command("create", params=[click.Argument(["name"])], callback=lambda **kw: None)
+        parent_ctx = click.Context(click.Group("sub"), info_name="sub")
+        ctx = click.Context(cmd, info_name="create", parent=parent_ctx)
+
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = ["cli", "sub", "create", "--help"]
+            result = _extract_argv_positionals(cmd, ctx)
+        finally:
+            sys.argv = original_argv
+
+        assert result == {}
+
+    def test_subcommand_token_with_positional_extracted(self):
+        import sys
+        import click
+        from typer_examples._providers import _extract_argv_positionals
+
+        cmd = click.Command("create", params=[click.Argument(["name"])], callback=lambda **kw: None)
+        parent_ctx = click.Context(click.Group("sub"), info_name="sub")
+        ctx = click.Context(cmd, info_name="create", parent=parent_ctx)
+
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = ["cli", "sub", "create", "myvalue", "--help"]
+            result = _extract_argv_positionals(cmd, ctx)
+        finally:
+            sys.argv = original_argv
+
+        assert result == {"name": "myvalue"}

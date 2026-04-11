@@ -11,7 +11,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from ._models import Example, ExamplesConfig
-from ._providers import resolve_vars, safe_format_map
+from ._providers import _extract_argv_positionals, resolve_vars, safe_format_map
 
 
 def print_examples_panel(
@@ -24,6 +24,7 @@ def print_examples_panel(
 
     console = ut._get_rich_console()  # type: ignore[attr-defined]
     template_vars = resolve_vars(obj, ctx, config.vars)
+    argv_vars = _extract_argv_positionals(obj, ctx)
 
     border_style = (
         config.panel_border_style
@@ -31,20 +32,14 @@ def print_examples_panel(
         else getattr(ut, "STYLE_OPTIONS_PANEL_BORDER", "dim")
     )
     padding = (
-        config.panel_padding
-        if config.panel_padding is not None
-        else getattr(ut, "STYLE_OPTIONS_TABLE_PADDING", (0, 1))
+        config.panel_padding if config.panel_padding is not None else getattr(ut, "STYLE_OPTIONS_TABLE_PADDING", (0, 1))
     )
-    title_align = (
-        config.title_align
-        if config.title_align is not None
-        else getattr(ut, "ALIGN_OPTIONS_PANEL", "left")
-    )
+    title_align = config.title_align if config.title_align is not None else getattr(ut, "ALIGN_OPTIONS_PANEL", "left")
 
     rows = []
 
     for i, ex in enumerate(examples):
-        merged_vars = {**template_vars, **ex.vars}
+        merged_vars = {**template_vars, **ex.vars, **argv_vars}
 
         desc = safe_format_map(ex.desc, merged_vars)
         code = _build_code(ex.code, obj, ctx, merged_vars, config)

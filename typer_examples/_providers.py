@@ -33,9 +33,10 @@ def resolve_vars(
     """Build the template-variable mapping for a single render pass.
 
     Resolution priority (highest → lowest):
-    1. Per-example kwargs (merged by the renderer after this returns)
-    2. App-level ``configure(vars={...})`` — callables evaluated here
-    3. Auto-fill from ``sys.argv`` positional args before ``--help``
+    1. Auto-fill from ``sys.argv`` positional args before ``--help`` (merged by
+       the renderer after this returns, always wins over per-example kwargs)
+    2. Per-example kwargs (merged by the renderer after this returns)
+    3. App-level ``configure(vars={...})`` — callables evaluated here
     4. Parameter defaults from the Click command definition
     """
     result: Dict[str, str] = {}
@@ -72,7 +73,7 @@ def _extract_argv_positionals(
     known_subcommands: set[str] = set()
     c: click.Context | None = ctx
     while c is not None:
-        if isinstance(c.command, click.MultiCommand):
+        if isinstance(c.command, click.Group):
             known_subcommands.update(c.command.list_commands(c))
         c = c.parent
 
@@ -83,9 +84,12 @@ def _extract_argv_positionals(
     except StopIteration:
         pass
 
-    positional_values = [
-        a for a in raw_args if not a.startswith("-") and a not in known_subcommands
-    ]
+    command_path_tokens = ctx.command_path.split()
+    for token in command_path_tokens:
+        if raw_args and raw_args[0] == token:
+            raw_args = raw_args[1:]
+
+    positional_values = [a for a in raw_args if not a.startswith("-") and a not in known_subcommands]
 
     result: Dict[str, str] = {}
     for param, value in zip(positional_params, positional_values):
