@@ -73,7 +73,7 @@ def _extract_argv_positionals(
     known_subcommands: set[str] = set()
     c: click.Context | None = ctx
     while c is not None:
-        if isinstance(c.command, click.MultiCommand):
+        if isinstance(c.command, click.Group):
             known_subcommands.update(c.command.list_commands(c))
         c = c.parent
 
@@ -84,7 +84,7 @@ def _extract_argv_positionals(
     except StopIteration:
         pass
 
-    command_path_tokens = ctx.command_path.split()[1:]
+    command_path_tokens = ctx.command_path.split()
     for token in command_path_tokens:
         if raw_args and raw_args[0] == token:
             raw_args = raw_args[1:]

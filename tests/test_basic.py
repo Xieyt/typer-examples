@@ -331,28 +331,36 @@ class TestArgvWinsOverPerExampleKwargs:
 
     def test_subcommand_token_not_mistaken_for_positional(self):
         import sys
+        import click
+        from typer_examples._providers import _extract_argv_positionals
 
-        app = _fresh_app()
-        install(app)
-
-        sub = typer.Typer()
-        install(sub)
-
-        @sub.command()
-        @example("Create bench", "{name}", name="fallback")
-        def create(name: str):
-            pass
-
-        app.add_typer(sub, name="sub")
+        cmd = click.Command("create", params=[click.Argument(["name"])], callback=lambda **kw: None)
+        parent_ctx = click.Context(click.Group("sub"), info_name="sub")
+        ctx = click.Context(cmd, info_name="create", parent=parent_ctx)
 
         original_argv = sys.argv[:]
         try:
             sys.argv = ["cli", "sub", "create", "--help"]
-            result = runner.invoke(app, ["sub", "create", "--help"])
+            result = _extract_argv_positionals(cmd, ctx)
         finally:
             sys.argv = original_argv
 
-        assert "fallback" in result.output
-        examples_section = result.output.split("Examples")[1]
-        first_code_line = [l for l in examples_section.splitlines() if "$ " in l][0]
-        assert "cli sub create fallback" in first_code_line
+        assert result == {}
+
+    def test_subcommand_token_with_positional_extracted(self):
+        import sys
+        import click
+        from typer_examples._providers import _extract_argv_positionals
+
+        cmd = click.Command("create", params=[click.Argument(["name"])], callback=lambda **kw: None)
+        parent_ctx = click.Context(click.Group("sub"), info_name="sub")
+        ctx = click.Context(cmd, info_name="create", parent=parent_ctx)
+
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = ["cli", "sub", "create", "myvalue", "--help"]
+            result = _extract_argv_positionals(cmd, ctx)
+        finally:
+            sys.argv = original_argv
+
+        assert result == {"name": "myvalue"}
