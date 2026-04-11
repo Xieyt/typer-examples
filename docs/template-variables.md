@@ -5,13 +5,26 @@ Example code strings can contain `{placeholder}` tokens that are resolved at ren
 ## Resolution order
 
 ```
-per-example kwargs  →  app-level vars  →  sys.argv  →  parameter defaults
-      (highest)                                              (lowest)
+sys.argv  →  per-example kwargs  →  app-level vars  →  parameter defaults
+(highest)                                                     (lowest)
 ```
 
-### 1. Per-example kwargs
+### 1. Auto-fill from `sys.argv`
 
-Pass keyword arguments directly to `@example()`. They override everything else for that specific example and have no effect on others.
+Positional arguments already present in `sys.argv` before `--help` are automatically mapped to their parameter names and always win — even over per-example kwargs. No code changes needed.
+
+```bash
+myapp deploy staging --help
+#                ↑
+# {env} is resolved to "staging" because "staging" appears
+# in the position matching the `env` parameter.
+```
+
+This lets users see contextually relevant examples when they're already mid-command. Per-example kwargs serve as the fallback value shown when no positional is present.
+
+### 2. Per-example kwargs
+
+Pass keyword arguments directly to `@example()`. They are used when no value was typed in `sys.argv` and override app-level vars and parameter defaults.
 
 ```python
 @example("Run in production", "{env} --fast", env="production")
@@ -19,9 +32,9 @@ Pass keyword arguments directly to `@example()`. They override everything else f
 def deploy(env: str): ...
 ```
 
-### 2. App-level vars
+### 3. App-level vars
 
-Set variable defaults on the `ExamplesConfig` passed to `install()`. Every example on that app uses these unless a per-example kwarg overrides them.
+Set variable defaults on the `ExamplesConfig` passed to `install()`. Every example on that app uses these unless a per-example kwarg or argv overrides them.
 
 ```python
 from typer_examples import ExamplesConfig, install
@@ -42,19 +55,6 @@ install(app, config=ExamplesConfig(vars={
 ```
 
 This is useful for values that aren't known at import time (e.g. config file contents, environment variables, authenticated user names).
-
-### 3. Auto-fill from `sys.argv`
-
-Positional arguments already present in `sys.argv` before `--help` are automatically mapped to their parameter names. No code changes needed.
-
-```bash
-myapp deploy staging --help
-#                ↑
-# {env} is resolved to "staging" because "staging" appears
-# in the position matching the `env` parameter.
-```
-
-This lets users see contextually relevant examples when they're already mid-command.
 
 ### 4. Parameter defaults
 
