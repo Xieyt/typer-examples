@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "typer-examples"
-version = "1.1.0"
+version = "1.1.1"
 description = "Beautiful example rendering for Typer CLI help output"
 readme = "README.md"
 requires-python = ">=3.9"
