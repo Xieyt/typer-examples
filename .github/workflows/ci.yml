@@ -52,18 +52,36 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --extra dev
 
+      - name: Skip when this commit is a release tag
+        id: guard
+        run: |
+          # The Release workflow regenerates and pushes CHANGELOG.md for tagged
+          # commits. Running both races on `git push origin main`.
+          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Regenerate CHANGELOG.md
+        if: steps.guard.outputs.skip == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: uv run git-cliff --output CHANGELOG.md
 
       - name: Commit if changed
+        if: steps.guard.outputs.skip == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore(changelog): update unreleased section [skip ci]"
-          git push origin HEAD:main
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(changelog): update unreleased section [skip ci]"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1
 
   summary:
     needs: test

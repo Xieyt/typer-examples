@@ -53,8 +53,13 @@ jobs:
           git checkout -B main origin/main
           uv run git-cliff --output CHANGELOG.md
           git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore(changelog): update for ${{ github.ref_name }} [skip ci]" --no-verify
-          git push origin main
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(changelog): update for ${{ github.ref_name }} [skip ci]" --no-verify
+          for i in 1 2 3; do
+            git push origin main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1
 
       - name: Build distributions
         run: uv build
