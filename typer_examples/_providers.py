@@ -1,20 +1,27 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
-import click
+if TYPE_CHECKING:
+    import click
 
-# Click uses a Sentinel singleton (not None) for required args that have no default.
-# We must exclude it from the template-var resolution, otherwise str(Sentinel.UNSET)
-# leaks as a literal "Sentinel.UNSET" placeholder value.
+# typer >= 0.17 vendors its own click fork as `typer._click` and no longer
+# depends on the standalone `click` distribution, so this module must not
+# import click at runtime. Parameters are classified by `param_type_name`
+# ("argument"/"option") and groups by the presence of `list_commands`, both of
+# which hold for real click and for the vendored fork.
+
+# Click >= 8.3 uses a Sentinel singleton (not None) for required args that have
+# no default. We must exclude it from the template-var resolution, otherwise
+# str(Sentinel.UNSET) leaks as a literal "Sentinel.UNSET" placeholder value.
 try:
-    from click.core import Sentinel as _ClickSentinel
+    from click.core import Sentinel as _ClickSentinel  # type: ignore[attr-defined]
 
-    _CLICK_UNSET = _ClickSentinel.UNSET
+    _CLICK_UNSET: Any = _ClickSentinel.UNSET
 except (ImportError, AttributeError):
-    # Older Click versions don't have this sentinel; use a private object that
-    # will never match any real default value.
+    # Click absent, or older Click without that sentinel; use a private object
+    # that will never match any real default value.
     _CLICK_UNSET = object()
 
 
@@ -41,7 +48,7 @@ def resolve_vars(
     """
     result: Dict[str, str] = {}
 
-    positional_params = [p for p in obj.params if isinstance(p, click.Argument)]
+    positional_params = [p for p in obj.params if p.param_type_name == "argument"]
 
     for param in positional_params:
         if param.default is not None and param.default is not _CLICK_UNSET:
@@ -66,15 +73,15 @@ def _extract_argv_positionals(
     obj: click.Command,
     ctx: click.Context,
 ) -> Dict[str, str]:
-    positional_params = [p for p in obj.params if isinstance(p, click.Argument)]
+    positional_params = [p for p in obj.params if p.param_type_name == "argument"]
     if not positional_params:
         return {}
 
     known_subcommands: set[str] = set()
     c: click.Context | None = ctx
     while c is not None:
-        if isinstance(c.command, click.Group):
-            known_subcommands.update(c.command.list_commands(c))
+        if hasattr(c.command, "list_commands"):
+            known_subcommands.update(c.command.list_commands(c))  # type: ignore[attr-defined]
         c = c.parent
 
     raw_args = list(sys.argv[1:])
